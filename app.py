@@ -1,51 +1,71 @@
+import sys
+import os
+import re
+import warnings
+
+# Suppress the syntax warnings about invalid escape sequences
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+
+# Fix newspaper module's regexp issues before importing it
+def patch_newspaper_regex():
+    # Find newspaper module directory
+    import importlib.util
+    spec = importlib.util.find_spec("newspaper")
+    if spec is None:
+        print("Newspaper module not found")
+        return
+    
+    newspaper_path = os.path.dirname(spec.origin)
+    
+    # Fix urls.py
+    urls_path = os.path.join(newspaper_path, "urls.py")
+    if os.path.exists(urls_path):
+        with open(urls_path, 'r') as f:
+            content = f.read()
+        
+        # Replace problematic patterns with properly escaped ones
+        content = content.replace('\\.', r'\\.')
+        
+        with open(urls_path, 'w') as f:
+            f.write(content)
+    
+    # Fix extractors.py
+    extractors_path = os.path.join(newspaper_path, "extractors.py")
+    if os.path.exists(extractors_path):
+        with open(extractors_path, 'r') as f:
+            content = f.read()
+        
+        # Replace problematic patterns with properly escaped ones
+        content = content.replace('\'\\d\'', r"'\\d'")
+        content = content.replace('[\\:\\s]', r'[\\:\\s]')
+        content = content.replace('[^\\w\\\'\\-\\.]', r'[^\\w\\\'\\-\\.]')
+        content = content.replace('application\\/rss\\+xml', r'application\/rss\+xml')
+        content = content.replace('[!*\\(\\),]', r'[!*\(\),]')
+        
+        with open(extractors_path, 'w') as f:
+            f.write(content)
+
+# Try to patch the files before importing newspaper
+try:
+    patch_newspaper_regex()
+    print("Successfully patched newspaper regex patterns")
+except Exception as e:
+    print(f"Error patching newspaper: {e}")
+
+# Import Flask and other dependencies
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from gnews import GNews
 import newspaper
 from newspaper import Article
-import os
 from dotenv import load_dotenv
 import json
-import re
 from datetime import datetime
 import time
 import traceback
-from functools import lru_cache  # Import LRU Cache for caching results
+from functools import lru_cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
-# Fix invalid escape sequences in the newspaper library
-import warnings
-
-# Monkey patch the problematic regular expressions
-def fix_newspaper_escape_sequences():
-    # Fix in newspaper/urls.py
-    if hasattr(newspaper.urls, 'STRICT_DATE_REGEX'):
-        newspaper.urls.STRICT_DATE_REGEX = newspaper.urls.STRICT_DATE_REGEX.replace('\.', '.')
-    
-    # Fix in newspaper/extractors.py
-    if hasattr(newspaper.extractors, 'DIGITS_REGEX'):
-        newspaper.extractors.DIGITS_REGEX = re.compile(r'\d')
-    
-    if hasattr(newspaper.extractors, 'AUTHOR_REGEX'):
-        newspaper.extractors.AUTHOR_REGEX = newspaper.extractors.AUTHOR_REGEX.replace('\:', ':')
-    
-    if hasattr(newspaper.extractors, 'NAME_SPLITTING_REGEX'):
-        newspaper.extractors.NAME_SPLITTING_REGEX = re.compile(r"[^\w'\-\.]")
-    
-    if hasattr(newspaper.extractors, 'RSS_ATTRS'):
-        for i, (attr, value) in enumerate(newspaper.extractors.RSS_ATTRS):
-            if value == 'application\/rss\+xml':
-                newspaper.extractors.RSS_ATTRS[i] = (attr, 'application/rss+xml')
-    
-    # Fix URL_REGEX in newspaper/extractors.py
-    if hasattr(newspaper.extractors, 'URL_REGEX'):
-        newspaper.extractors.URL_REGEX = re.compile(
-            r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|'
-            r'(?:%[0-9a-fA-F][0-9a-fA-F]))+', re.IGNORECASE)
-
-# Apply the fixes
-fix_newspaper_escape_sequences()
 
 # Load environment variables
 load_dotenv()
@@ -59,6 +79,7 @@ limiter = Limiter(
     default_limits=["100 per day", "30 per hour"],
     storage_uri="memory://",
 )
+
 # Configure CORS with specific settings
 CORS(app, resources={
     r"/*": {
