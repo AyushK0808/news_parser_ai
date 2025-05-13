@@ -1,4 +1,8 @@
-from app import app
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# This is the entry point for Vercel's serverless function
-handler = app
+from app import app as handler
+
+if __name__ == "__main__":
+    handler.run(debug=True)
