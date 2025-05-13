@@ -14,6 +14,39 @@ from functools import lru_cache  # Import LRU Cache for caching results
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+# Fix invalid escape sequences in the newspaper library
+import warnings
+
+# Monkey patch the problematic regular expressions
+def fix_newspaper_escape_sequences():
+    # Fix in newspaper/urls.py
+    if hasattr(newspaper.urls, 'STRICT_DATE_REGEX'):
+        newspaper.urls.STRICT_DATE_REGEX = newspaper.urls.STRICT_DATE_REGEX.replace('\.', '.')
+    
+    # Fix in newspaper/extractors.py
+    if hasattr(newspaper.extractors, 'DIGITS_REGEX'):
+        newspaper.extractors.DIGITS_REGEX = re.compile(r'\d')
+    
+    if hasattr(newspaper.extractors, 'AUTHOR_REGEX'):
+        newspaper.extractors.AUTHOR_REGEX = newspaper.extractors.AUTHOR_REGEX.replace('\:', ':')
+    
+    if hasattr(newspaper.extractors, 'NAME_SPLITTING_REGEX'):
+        newspaper.extractors.NAME_SPLITTING_REGEX = re.compile(r"[^\w'\-\.]")
+    
+    if hasattr(newspaper.extractors, 'RSS_ATTRS'):
+        for i, (attr, value) in enumerate(newspaper.extractors.RSS_ATTRS):
+            if value == 'application\/rss\+xml':
+                newspaper.extractors.RSS_ATTRS[i] = (attr, 'application/rss+xml')
+    
+    # Fix URL_REGEX in newspaper/extractors.py
+    if hasattr(newspaper.extractors, 'URL_REGEX'):
+        newspaper.extractors.URL_REGEX = re.compile(
+            r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|'
+            r'(?:%[0-9a-fA-F][0-9a-fA-F]))+', re.IGNORECASE)
+
+# Apply the fixes
+fix_newspaper_escape_sequences()
+
 # Load environment variables
 load_dotenv()
 
@@ -36,7 +69,7 @@ CORS(app, resources={
 })
 
 # Enable debugging for development
-app.config['DEBUG'] = True
+app.config['DEBUG'] = False  # Set to False for production
 
 # Simple in-memory cache for news results
 news_cache = {}

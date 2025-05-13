@@ -4,7 +4,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app
 
-handler=app
+def handler(event, context):
+    return app(event, context)
 
+# Expose Flask app for local development
 if __name__ == "__main__":
-    handler.run(debug=True)
+    app.run(debug=True)
