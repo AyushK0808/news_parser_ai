@@ -14,11 +14,5 @@
   ],
   "env": {
     "PYTHONUNBUFFERED": "1"
-  },
-  "functions": {
-    "api/index.py": {
-      "memory": 512,
-      "maxDuration": 15
-    }
   }
 }
